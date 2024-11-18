@@ -26,7 +26,7 @@ class VI:
         The size of the vector space
     """
 
-    def __init__(self, F, g=0, S=None, n=None) -> None:
+    def __init__(self, F, g=0, S=None, n=None, J=None) -> None:
         if S is None:
             S = []
 
@@ -45,6 +45,7 @@ class VI:
         self.F = F
         self.g = g
         self.S = S
+        self.J = J
 
         self.param_x = cp.Parameter(self.y.size)
         self._prox = cp.Problem(
@@ -521,7 +522,7 @@ class VI:
                 (\mathbf{x}_0 - \mathbf{x}_k) - \frac{1}{k}(\mathbf{x}_k - 
                 \mathbf{x}_{k-1}) \\
                 \mathbf{x}_{k+1} &= \text{prox}_{g,\mathcal{S}}\left(\mathbf{x}_k - 
-                    \lambda F(\mathbf{y}_k) + \frac{1}{k+1}(\mathbf{x}_0 - 
+                    \lambda F(\mathbf{y}_k) + \frac{1}{k+1}(\mathbf{x}_0 -
                     \mathbf{x}_k)\right)
             \end{align}
 
@@ -1151,6 +1152,17 @@ class VI:
             s2_current = s2
 
             yield x
+
+    def fbf_hsdm(self, x: np.ndarray, step_size: float, alpha: float, **cvxpy_solve_params) -> np.ndarray:
+        n_iter = 1
+        while True:
+            n_iter = n_iter + 1
+            y_1 = self.prox(x - step_size * self.F(x), **cvxpy_solve_params)
+            y_2 = y_1 - step_size * self.F(y_1) + step_size * self.F(x)
+            step_size_hsdm = 1/(n_iter**alpha)
+            x = y_2 - step_size_hsdm * self.J(y_2)
+            yield x
+
 
     ################################
 

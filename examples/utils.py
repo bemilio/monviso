@@ -23,6 +23,7 @@ ALGORITHM_NAMES = (
     "agraal",
     "hgraal_1",
     "hgraal_2",
+    "fbf_hsdm",
 )
 TAB20 = plt.get_cmap("tab20")
 COLORS = {name: TAB20.colors[i] for i, name in enumerate(ALGORITHM_NAMES)}
