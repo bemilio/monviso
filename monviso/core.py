@@ -26,7 +26,7 @@ class VI:
         The size of the vector space
     """
 
-    def __init__(self, F, g=0, S=None, n=None, J=None) -> None:
+    def __init__(self, F, g=0, S=None, n=None) -> None:
         if S is None:
             S = []
 
@@ -45,7 +45,6 @@ class VI:
         self.F = F
         self.g = g
         self.S = S
-        self.J = J
 
         self.param_x = cp.Parameter(self.y.size)
         self._prox = cp.Problem(
@@ -1153,14 +1152,93 @@ class VI:
 
             yield x
 
-    def fbf_hsdm(self, x: np.ndarray, step_size: float, alpha: float, **cvxpy_solve_params) -> np.ndarray:
+    def fbf_hsdm(self, x: np.ndarray, J, step_size: float, alpha: float, **cvxpy_solve_params) -> np.ndarray:
+        r"""
+        This algorithm solves a bi-level VI problem.
+        The lower-level (or primary objective) VI is cast as the
+        fixed-point set of the Forward-Backward-Forward (FBF) operator.
+        The problem being solved is then:
+        .. math::
+            \begin{equation}
+                VI\large(J, \mathrm{fix}(\mathcal{T}_{\mathrm{FBF}) \large)
+            \end{equation}
+        where :math:`J` is the vector field of the upper-level (or secondary objective) VI.
+        If :math:`J` is the gradient of a convex function :math:`\phi`, then this is
+        equivalent to solving the optimal VI-solution selection problem
+        .. math::
+            \begin{align}
+                \mathrm{min} ~& \phi(x) \\
+                \mathrm{s.t.} ~& x~\text{solves}~VI(F, \mathcal{S})
+            \end{align}
+        where :math:`F` is the vector field of the primary objective VI
+        and :math:`\mathcal{S}` is the constraint set.
+
+        Given a constant step-size :math:`\lambda > 0` and an initial vector
+        :math:`\mathbf{x}_0 \in \mathbb{R}^n`, the :math:`k`-th
+        iterate of the Hybrid Steepest Descent Method (HSDM) paired with
+         Forward-Backward-Forward (FBF) algorithm is [15]_:
+
+        .. math::
+            \begin{align}
+                \mathbf{y}_k &= \text{prox}_{g,\mathcal{S}}(\mathbf{x}_k -
+                    \lambda F(\mathbf{x}_k)) \\
+                \mathbf{z}_{k} &= \mathbf{y}_k -
+                    \lambda F(\mathbf{y}_k) + \lambda F(\mathbf{x}_k)
+                \mathbf{x}_{k+1} &= \mathbf{z}_k - \beta^{(k)} J(\mathbf{z}_k)
+            \end{align}
+
+        where :math:`g : \mathbb{R}^n \to \mathbb{R}` is a scalar convex
+        (possibly non-smooth) function.
+        The convergence of the HSDM is guaranteed if the stepsize sequence
+        :math:`\beta^{(k)}` satisfies:
+        .. math::
+            \begin{align}
+                \mathrm{lim} \beta^{(k)} &= 0 \\
+                \sum_{k=1}^{\infty} \beta^{(k)} &= \infty \\
+                \sum_{k=1}^{\infty} \large(\beta^{(k)}\large)^2 &< \infty
+            \end{align}
+        and, denoting :math:`L` the Lipschitz constant of :math:`F`,
+        when :math:`\lambda \in \left(0,\frac{1}{L}\right)`.
+        In this implementation, we use
+        .. math::
+            \begin{equation}
+            \beta^{(k)} = 1/k^{\alpha}
+            \end{equation}
+        which satisfies the assumptions when :math:`\alpha \in(.5, 1]`.
+        Arguments
+        ----------
+        x : ndarray
+            The initial point, corresponding to :math:`\mathbf{x}_0`
+        J : callable
+            The vector field of the upper-level VI, e.g. the gradient of an optimal selection function
+        step_size : float
+            The step size value, corresponding to :math:`\lambda`
+        alpha : float
+            The vanishing rate of the selection step-size (the higher it is, the faster :math:`\beta^{(k)}` goes to 0).
+            Convergence is guaranteed if alpha is in (.5,1].
+        cvxpy_solve_params
+            The parameters for the
+            `cvxpy.Problem.solve <https://www.cvxpy.org/api_reference/cvxpy.problems.html#cvxpy.Problem.solve>`_
+            method.
+        Yields
+        -------
+        ndarray
+            The iteration's resulting point
+
+        References
+        ----------
+        .. [7] Benenati, E.; Ananduta, W.; Grammatico, S. (2023). Optimal Selection and Tracking Of
+        Generalized Nash Equilibria in Monotone Games. IEEE Transactions on Automatic Control, 68(12), 7644-7659.
+        """
+        if not callable(J):
+            raise TypeError("[VI.fbf_hsdm] The parameter 'J' must be callable, but got type "f"'{type(J).__name__}'.")
         n_iter = 1
         while True:
             n_iter = n_iter + 1
             y_1 = self.prox(x - step_size * self.F(x), **cvxpy_solve_params)
             y_2 = y_1 - step_size * self.F(y_1) + step_size * self.F(x)
             step_size_hsdm = 1/(n_iter**alpha)
-            x = y_2 - step_size_hsdm * self.J(y_2)
+            x = y_2 - step_size_hsdm * J(y_2)
             yield x
 
 

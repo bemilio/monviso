@@ -22,14 +22,14 @@ x_des = [1, 1]
 J = lambda x: (x - x_des)
 
 # Create the VI and the initial solution(s)
-sso = VI(F, n=n * M, S=S, J=J)
+sso = VI(F, n=n * M, S=S)
 x0 = np.random.rand(n * M)
 
 # Solve the VI using the available algorithms
 max_iter = 1000
 
 algorithm = "fbf_hsdm"
-params = {"x": x0, "step_size": .5 / L, "alpha": .7}
+params = {"x": x0, "J": J, "step_size": .5 / L, "alpha": .7}
 sol_hsdm = sso.solution(
     algorithm,
     params,
