@@ -1,3 +1,8 @@
+'''
+This script tests the FBF+HSDM algorithm, which optimally selects
+the solution to an optimization problem constrained to the solutions to
+a Variational Inequality.
+'''
 import numpy as np
 import scipy as sp
 import cvxpy as cp
@@ -8,7 +13,7 @@ from monviso import VI
 
 M, n = 2, 1
 
-# Create the problem variables
+# Define the VI parameters
 # This VI is solved for every x[0] = x[1] s.t. x[0]>=0
 A = np.array([[0, 1], [-1, 0]])
 F = lambda x: A @ x
@@ -17,7 +22,10 @@ q = np.array([1, -1])
 S = [q @ x >= 0] # x[0] >= x[1]
 L = np.linalg.norm(A, 2)
 
-# Select the (feasible) point (-1, -1)
+# Define the optimization problem.
+# The problem is constrained to the set of solutions to the VI defined above.
+# Specifically, we select the point (1, 1), which belongs to the set of VI solutions
+# and thus it should be reached by the FBF+HSDM algorithm - but not from any non-selecting solution algorithms
 x_des = [1, 1]
 J = lambda x: (x - x_des)
 
@@ -25,7 +33,7 @@ J = lambda x: (x - x_des)
 sso = VI(F, n=n * M, S=S)
 x0 = np.random.rand(n * M)
 
-# Solve the VI using the available algorithms
+# Solve the VI using the optimal selection algorithm FBF+HSDM and compare it to (vanilla) FBF
 max_iter = 1000
 
 algorithm = "fbf_hsdm"
